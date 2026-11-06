@@ -1,0 +1,252 @@
+:root {
+  --bg: #faf9f6;
+  --ink: #1e2422;
+  --muted: #6c7370;
+  --line: #e2e0d9;
+  --accent: #2f6f6b;
+  --accent-ink: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141716;
+    --ink: #ecefed;
+    --muted: #9aa29e;
+    --line: #2d3230;
+    --accent: #7cc4bd;
+    --accent-ink: #0d1413;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  max-width: 460px;
+  margin: 0 auto;
+  padding:
+    calc(env(safe-area-inset-top) + 20px)
+    28px
+    calc(env(safe-area-inset-bottom) + 28px);
+}
+
+.progress {
+  height: 2px;
+  background: var(--line);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+}
+
+h1.phase {
+  text-align: center;
+}
+
+h1.phase.small {
+  font-size: 22px;
+}
+
+.note {
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.note.center {
+  text-align: center;
+  min-height: 1.7em;
+}
+
+.choices {
+  display: grid;
+  gap: 10px;
+}
+
+.choices.row {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+button {
+  min-height: 54px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+button:active {
+  opacity: 0.6;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 500;
+}
+
+button.quiet {
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.hz {
+  margin-top: 48px;
+  text-align: center;
+  font-size: 72px;
+  font-weight: 300;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.hz small {
+  margin-left: 8px;
+  font-size: 18px;
+  color: var(--muted);
+}
+
+.timebar {
+  height: 2px;
+  margin-top: 56px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.timebar span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--muted);
+}
+
+.tuner {
+  position: relative;
+  height: 72px;
+  margin-top: 56px;
+}
+
+.tuner-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+
+.tuner-center {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 50%;
+  width: 1px;
+  background: var(--muted);
+}
+
+.tuner-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: 0;
+  transition: left 0.08s linear, background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.tuner-dot.visible {
+  opacity: 1;
+}
+
+.tuner-dot.in-tune {
+  background: var(--accent);
+}
+
+.result {
+  margin: 36px 0 0;
+}
+
+.result div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+}
+
+.result dt {
+  color: var(--muted);
+}
+
+.result dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.raw {
+  display: none;
+  width: 100%;
+  height: 120px;
+  margin-top: 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.raw.visible {
+  display: block;
+}
