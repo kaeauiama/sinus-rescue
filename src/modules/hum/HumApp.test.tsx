@@ -4,7 +4,8 @@ import { createMemoryStore } from '../../platform/store';
 import { DANGER_SIGNS, NOTICE_LINES } from './copy';
 import { SETTING_NOTICE } from './context';
 import { SETTING_MORNING_SKIPPED } from './domain/history';
-import { KIND_SESSION } from './domain/session';
+import { SETTING_POSTURE_SEEN, SETTING_PROGRAMS } from './domain/programs';
+import { DEFAULT_SESSION, KIND_SESSION, SETTING_SESSION } from './domain/session';
 import { KIND_PROFILE, KIND_TONE } from './domain/tones';
 import { HumApp } from './HumApp';
 
@@ -58,6 +59,89 @@ describe('単体での動作(HC-8)', () => {
     expect(screen.getByText(/楽な高さの音で始めます/)).toBeTruthy();
     expect(screen.getByText('タイマーだけ使う')).toBeTruthy();
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+// jsdom には Web Audio がないので、タイマーで始めるのに必要な分だけ用意する。
+class FakeAudioContext {
+  state = 'running';
+  currentTime = 0;
+  sampleRate = 48000;
+  destination = {};
+  private node = () => ({ connect() {}, disconnect() {} });
+  private param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {}, cancelScheduledValues() {} });
+  createAnalyser() {
+    return { ...this.node(), fftSize: 0, smoothingTimeConstant: 0, getFloatTimeDomainData() {} };
+  }
+  createGain() {
+    return { ...this.node(), gain: this.param() };
+  }
+  createOscillator() {
+    return { ...this.node(), frequency: this.param(), setPeriodicWave() {}, start() {}, stop() {} };
+  }
+  createPeriodicWave() {
+    return {};
+  }
+  resume() {
+    return Promise.resolve();
+  }
+  close() {
+    return Promise.resolve();
+  }
+}
+
+describe('ハミングのメニュー', () => {
+  const ready = async (session?: object) => {
+    const store = createMemoryStore();
+    await store.setSetting(SETTING_NOTICE, '2026-11-04T00:00:00Z');
+    await store.setSetting(SETTING_MORNING_SKIPPED, logicalDay(new Date()));
+    if (session) await store.setSetting(SETTING_SESSION, { ...DEFAULT_SESSION, ...session });
+    await store.addEvents([createEvent(KIND_PROFILE, { comfortHz: 139, lowHz: 98, falsettoHz: null })]);
+    return store;
+  };
+
+  it('規定のメニューを選ぶと、ホームに名前と時間が出る', async () => {
+    render(<HumApp store={await ready()} />);
+    fireEvent.click(await screen.findByText('メニューを変える'));
+    fireEvent.click(await screen.findByText('山道'));
+    fireEvent.click(await screen.findByText('これにする'));
+    await screen.findByText(/^山道 約\d+分$/);
+  });
+
+  it('つまむ構えを初めて使うときだけ説明を出し、合図を表示する', async () => {
+    vi.stubGlobal('AudioContext', FakeAudioContext);
+    try {
+      const store = await ready({ programId: 'interval' });
+      const first = render(<HumApp store={store} />);
+      fireEvent.click(await screen.findByText('タイマーだけ使う'));
+      await screen.findByText('鼻の構え');
+      fireEvent.click(screen.getByText('わかりました、始める'));
+      await screen.findByText('息を吸う');
+      expect(screen.getByText(/次はつまむ: 鼻をつまみ、口を小さく開ける/)).toBeTruthy();
+      expect((await store.loadSettings())[SETTING_POSTURE_SEEN]).toBeTruthy();
+      first.unmount();
+
+      render(<HumApp store={store} />);
+      fireEvent.click(await screen.findByText('タイマーだけ使う'));
+      await screen.findByText('息を吸う');
+      expect(screen.queryByText('鼻の構え')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('自分のメニューを作って、そのまま使える', async () => {
+    const store = await ready();
+    render(<HumApp store={store} />);
+    fireEvent.click(await screen.findByText('メニューを変える'));
+    fireEvent.click(await screen.findByText('新しく作る'));
+    fireEvent.input(await screen.findByLabelText('名前'), { target: { value: '朝用' } });
+    fireEvent.click(screen.getByRole('button', { name: '軽く狭める' }));
+    fireEvent.click(screen.getByRole('button', { name: '山道' }));
+    fireEvent.click(screen.getByText('保存して使う'));
+    await screen.findByText(/^朝用 約\d+分$/);
+    const saved = (await store.loadSettings())[SETTING_PROGRAMS] as { blocks: { nose: string; pitch: { kind: string } }[] }[];
+    expect(saved[0].blocks[0]).toMatchObject({ nose: 'narrow', pitch: { kind: 'hill' } });
   });
 });
 

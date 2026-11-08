@@ -16,6 +16,10 @@ export type Route =
   | { name: 'tone'; toneId: string }
   | { name: 'session'; mode: 'tuner' | 'timer'; resumeFrom?: number }
   | { name: 'plan' }
+  | { name: 'programs' }
+  | { name: 'program'; programId: string }
+  | { name: 'programEdit'; programId?: string }
+  | { name: 'postureGuide'; then?: { mode: 'tuner' | 'timer'; resumeFrom?: number } }
   | { name: 'experiment' }
   | { name: 'records' }
   | { name: 'settings' }

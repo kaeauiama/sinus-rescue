@@ -1,6 +1,36 @@
 // 長い文章の置き場所。医療効果をうたわないことを test/guards.test.ts で検査する(HC-1)。
+import type { Nose } from './domain/session';
 
 export const APP_NAME = import.meta.env.VITE_APP_NAME as string;
+
+// 鼻の構え(docs/01-hum-mechanics.md §9)。鼻と口の両方を閉じる指示は出さない(guards で検査)。
+export const NOSE_LABELS: Record<Nose, string> = { open: '鼻を開ける', narrow: '軽く狭める', pinch: 'つまむ' };
+
+export const NOSE_TITLES: Record<Nose | 'flush', string> = {
+  open: '「んー」',
+  narrow: '狭めて「んー」',
+  pinch: 'つまんで「んー」',
+  flush: '鼻を離して「んー」',
+};
+
+export const NOSE_CUES: Record<Nose | 'flush', string> = {
+  open: '口を閉じ、鼻から息を出す',
+  narrow: '小鼻を指で軽く押さえ、細く息を出す',
+  pinch: '鼻をつまみ、口を小さく開ける',
+  flush: '鼻から息を流す',
+};
+
+export const CONTACT_CUE = 'スマホの下の端を鼻の横に軽く当てる';
+
+export const POSTURE_TITLE = '鼻の構え';
+
+export const POSTURE_LINES = [
+  '鼻を開ける: いつものハミングです。口を閉じ、鼻から息を出します。',
+  '軽く狭める: 指先で小鼻を軽く押さえ、鼻から細く息が出る程度にします。',
+  'つまむ: 鼻をつまみ、口を小さく開けて「んー」と出します。口は閉じません。',
+  'つまんだあとは、鼻を離して1回ハミングし、鼻から息を流します。',
+  '耳が詰まる感じや痛みが出たら、狭めるのとつまむのをやめてください。',
+];
 
 export const NOTICE_LINES = [
   'ハミングの音程を合わせて、自分に響く音を記録するアプリです。診断や治療はせず、効果も約束しません。',
@@ -54,4 +84,6 @@ export const BACKGROUND_LINES = [
   '響く音は本人の感覚による記録です。副鼻腔そのものの振動を測っているわけではありません。',
   '短セットと3分の休憩は、続けてハミングすると一酸化窒素の上昇が小さくなり、3分の休止で戻るという報告を参考にしています。',
   '連続型は、1例だけの報告を参考にした設定です。',
+  '鼻の出口を狭めたりつまんだりする構えは、鼻の中の圧の振れが大きくなるという計算をもとに選べるようにしています。計算上の話で、体への影響は確かめられていません。',
+  '山道とスロープは、副鼻腔の共振が人や日によって違うので、決まった高さに頼らず幅広い高さを通るための内容です。',
 ];

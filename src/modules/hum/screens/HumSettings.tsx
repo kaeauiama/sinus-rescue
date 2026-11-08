@@ -31,7 +31,7 @@ export function HumSettings() {
         <h1>設定</h1>
       </header>
       <Group title="ハミング">
-        <ListRow icon="list" tone="violet" label="今日のハミングの内容" onClick={() => go({ name: 'plan' })} />
+        <ListRow icon="list" tone="violet" label="ハミングのメニュー" onClick={() => go({ name: 'programs' })} />
       </Group>
       {settingsExtra}
       <BackupPanel events={events} settings={settings} persistent={store.persistent} appendAll={appendAll} setSetting={setSetting} />

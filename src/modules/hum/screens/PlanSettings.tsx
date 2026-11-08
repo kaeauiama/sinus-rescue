@@ -25,9 +25,14 @@ function Stepper({ label, value, unit, min, max, onChange }: { label: string; va
 }
 
 export function PlanSettings() {
-  const { events, settings, setSetting, go, entry } = useHum();
+  const { events, settings, setSetting, go } = useHum();
   const current: SessionSettings = { ...DEFAULT_SESSION, ...(settings[SETTING_SESSION] as Partial<SessionSettings> | undefined) };
-  const update = (patch: Partial<SessionSettings>) => setSetting(SETTING_SESSION, { ...current, ...patch });
+  const update = (patch: Partial<SessionSettings>) => {
+    const next = { ...current, ...patch };
+    // 短セットと連続型の切り替えは、そのまま「いつもの」と「連続型」のメニューを選ぶことにする。
+    if (patch.preset) next.programId = patch.preset === 'continuous' ? 'continuous' : 'simple';
+    return setSetting(SETTING_SESSION, next);
+  };
 
   const tones = currentTones(events);
   const rank = (id: string) => {
@@ -47,7 +52,7 @@ export function PlanSettings() {
   };
 
   return (
-    <Screen title="今日のハミングの内容" align="top" onClose={() => go({ name: entry === 'settings' ? 'settings' : 'home' })} closeLabel="戻る">
+    <Screen title="いつもの・連続型の設定" align="top" onClose={() => go({ name: 'programs' })} closeLabel="戻る">
       <div class="segmented" role="group" aria-label="やり方">
         <button type="button" class={current.preset === 'short' ? 'segment-active' : ''} onClick={() => update({ preset: 'short' })}>
           短セット

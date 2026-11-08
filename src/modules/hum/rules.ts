@@ -44,6 +44,21 @@ export const CONTINUOUS_DEFAULT_HZ = 130.81;
 // 翌朝の1問
 export const MORNING_END_HOUR = 14;
 
+// ハミングのメニュー(docs/01-hum-mechanics.md §9)。高さは楽な高さからの半音で表す。
+export const HILL_LOW_SEMITONES = -3;
+export const HILL_HIGH_SEMITONES = 4;
+export const GLIDE_LOW_SEMITONES = -3;
+export const GLIDE_HIGH_SEMITONES = 4;
+export const STEP_MIN_SEMITONES = -5;
+export const STEP_MAX_SEMITONES = 7;
+export const COMPARE_HUMS = 3;
+export const COMPARE_REST_SEC = 20;
+export const PROGRAM_MAX_BLOCKS = 12;
+export const PROGRAM_MAX_CUSTOM = 10;
+export const BLOCK_MAX_HUMS = 20;
+export const BLOCK_MAX_SETS = 5;
+export const BLOCK_REST_CHOICES = [0, 30, 60, 120, 180];
+
 // 実施に数えるセッション。途中でやめた短いものは数えない
 export const SESSION_COUNTED_SEC = 60;
 

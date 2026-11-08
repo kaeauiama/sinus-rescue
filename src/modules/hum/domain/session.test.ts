@@ -2,8 +2,8 @@ import {
   CONTINUOUS_HUMS_PER_MIN,
   HUM_REST_SEC,
 } from '../rules';
+import { buildPlan } from './programs';
 import {
-  buildPlan,
   DEFAULT_SESSION,
   estimateSeconds,
   planSummary,

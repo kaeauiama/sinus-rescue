@@ -1,15 +1,4 @@
-import {
-  BREATH_SEC,
-  BREATH_TONE_SEC,
-  CONTINUOUS_BREATH_SEC,
-  CONTINUOUS_DEFAULT_HZ,
-  CONTINUOUS_DEFAULT_MIN,
-  CONTINUOUS_HUMS_PER_MIN,
-  DEFAULT_HUMS_PER_SET,
-  DEFAULT_SETS_PER_TONE,
-  HUM_HOLD_SEC,
-  HUM_REST_SEC,
-} from '../rules';
+import { CONTINUOUS_DEFAULT_HZ, CONTINUOUS_DEFAULT_MIN, DEFAULT_HUMS_PER_SET, DEFAULT_SETS_PER_TONE, HUM_REST_SEC } from '../rules';
 import { noteName, snapToSemitone } from './dsp';
 import { toneLabel } from './sites';
 import type { Tone, VoiceProfile } from './tones';
@@ -20,8 +9,12 @@ export const SETTING_PROGRESS = 'hum.progress';
 
 export type Preset = 'short' | 'continuous';
 
+// 鼻の出口の構え。つまむときは口を小さく開け、鼻と口の両方は閉じない(docs/01-hum-mechanics.md §9)。
+export type Nose = 'open' | 'narrow' | 'pinch';
+
 export interface SessionSettings {
   preset: Preset;
+  programId?: string;
   humsPerSet: number;
   setsPerTone: number;
   restSec: number;
@@ -40,19 +33,29 @@ export const DEFAULT_SESSION: SessionSettings = {
   disabled: [],
 };
 
+export const sessionSettings = (stored: unknown): SessionSettings => ({
+  ...DEFAULT_SESSION,
+  ...(stored as Partial<SessionSettings> | undefined),
+});
+
+// toHz があるときは、1回のハミングの中で hz から toHz へ高さを滑らせる。
 export interface PlanTone {
   toneId: string | null;
   label: string;
   hz: number;
+  toHz?: number;
 }
 
 export type Beat =
-  | { kind: 'breath'; toneIndex: number; rep: number; reps: number; ms: number; toneMs: number }
-  | { kind: 'hum'; toneIndex: number; rep: number; reps: number; ms: number }
-  | { kind: 'rest'; toneIndex: number; ms: number };
+  | { kind: 'breath'; toneIndex: number; rep: number; reps: number; ms: number; toneMs: number; nose: Nose; flush?: boolean }
+  | { kind: 'hum'; toneIndex: number; rep: number; reps: number; ms: number; nose: Nose; flush?: boolean; part: number }
+  | { kind: 'rest'; toneIndex: number; ms: number }
+  | { kind: 'rate'; toneIndex: number; ms: number; nose: Nose; part: number };
 
 export interface SessionPlan {
   preset: Preset;
+  programId: string;
+  name: string;
   tones: PlanTone[];
   beats: Beat[];
   signature: string;
@@ -71,50 +74,6 @@ export function planTones(settings: SessionSettings, tones: Tone[], profile: Voi
   if (enabled.length) return enabled;
   if (profile) return [{ toneId: null, label: '楽な高さの音', hz: snapToSemitone(profile.comfortHz) }];
   return [{ toneId: null, label: '基本の音', hz: CONTINUOUS_DEFAULT_HZ }];
-}
-
-export function buildPlan(settings: SessionSettings, tones: PlanTone[]): SessionPlan {
-  const beats: Beat[] = [];
-  let planned = tones;
-  if (settings.preset === 'continuous') {
-    planned = tones.slice(0, 1);
-    const reps = Math.max(1, Math.round(settings.continuousMin * CONTINUOUS_HUMS_PER_MIN));
-    const humMs = Math.round((60_000 / CONTINUOUS_HUMS_PER_MIN) - CONTINUOUS_BREATH_SEC * 1000);
-    for (let rep = 0; rep < reps; rep++) {
-      beats.push({
-        kind: 'breath',
-        toneIndex: 0,
-        rep,
-        reps,
-        ms: CONTINUOUS_BREATH_SEC * 1000,
-        toneMs: rep === 0 ? CONTINUOUS_BREATH_SEC * 1000 : 0,
-      });
-      beats.push({ kind: 'hum', toneIndex: 0, rep, reps, ms: humMs });
-    }
-  } else {
-    const reps = Math.max(1, settings.humsPerSet);
-    const sets = Math.max(1, settings.setsPerTone);
-    planned.forEach((_, toneIndex) => {
-      for (let set = 0; set < sets; set++) {
-        for (let rep = 0; rep < reps; rep++) {
-          // 吸いながら基準音を聞き、音が止まったら同じ高さでハミングする。目を閉じていても続けられる。
-          beats.push({
-            kind: 'breath',
-            toneIndex,
-            rep,
-            reps,
-            ms: BREATH_SEC * 1000,
-            toneMs: BREATH_TONE_SEC * 1000,
-          });
-          beats.push({ kind: 'hum', toneIndex, rep, reps, ms: HUM_HOLD_SEC * 1000 });
-        }
-        const last = toneIndex === planned.length - 1 && set === sets - 1;
-        if (!last && settings.restSec > 0) beats.push({ kind: 'rest', toneIndex, ms: settings.restSec * 1000 });
-      }
-    });
-  }
-  const signature = JSON.stringify([settings.preset, settings.humsPerSet, settings.setsPerTone, settings.restSec, settings.continuousMin, planned.map((t) => Math.round(t.hz))]);
-  return { preset: settings.preset, tones: planned, beats, signature };
 }
 
 export function estimateSeconds(plan: SessionPlan): number {
@@ -157,12 +116,23 @@ export interface SessionToneResult {
   inTuneRatio: number | null;
 }
 
+// 構えくらべで、構えごとに体感の強さと、マイクで測った音量を残す。
+export interface PostureResult {
+  nose: Nose;
+  rating: 1 | 2 | 3 | null;
+  levelDb: number | null;
+}
+
 export interface SessionRecord {
   preset: Preset;
+  programId?: string;
+  programName?: string;
   mode: 'tuner' | 'timer';
   completed: boolean;
   durationSec: number;
   tones: SessionToneResult[];
+  postures?: PostureResult[];
+  placement?: 'air' | 'contact';
   drainage: Drainage | null;
   noseChange: NoseChange | null;
 }

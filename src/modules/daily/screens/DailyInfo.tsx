@@ -7,6 +7,8 @@ import {
   DANGER_SIGNS,
   DANGER_TITLE,
   NOTICE_LINES,
+  POSTURE_LINES,
+  POSTURE_TITLE,
 } from '../../hum/copy';
 import { DAILY_NOTICE_LINES, WATER_LINES, WATER_TITLE } from '../copy';
 import { useDaily } from '../context';
@@ -36,6 +38,7 @@ export function DailyInfo() {
       <Section title={DANGER_TITLE} lines={DANGER_SIGNS} />
       <Section title={CONSULT_TITLE} lines={CONSULT_SIGNS} />
       <Section title={WATER_TITLE} lines={WATER_LINES} />
+      <Section title={POSTURE_TITLE} lines={POSTURE_LINES} />
       <Section title={BACKGROUND_TITLE} lines={BACKGROUND_LINES} />
     </Screen>
   );

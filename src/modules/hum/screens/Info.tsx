@@ -7,6 +7,8 @@ import {
   DANGER_SIGNS,
   DANGER_TITLE,
   NOTICE_LINES,
+  POSTURE_LINES,
+  POSTURE_TITLE,
 } from '../copy';
 import { useHum } from '../context';
 
@@ -34,6 +36,7 @@ export function Info() {
       </ul>
       <Section title={DANGER_TITLE} lines={DANGER_SIGNS} />
       <Section title={CONSULT_TITLE} lines={CONSULT_SIGNS} />
+      <Section title={POSTURE_TITLE} lines={POSTURE_LINES} />
       <Section title={BACKGROUND_TITLE} lines={BACKGROUND_LINES} />
     </Screen>
   );

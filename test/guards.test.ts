@@ -125,6 +125,16 @@ describe('HC-7 相関や差を因果として表示しない', () => {
   });
 });
 
+describe('鼻と口の両方を閉じる指示を出さない(U-18)', () => {
+  const FORBIDDEN = ['口を閉じて鼻をつまむ', '口を閉じたまま鼻をつまむ', '鼻と口を閉じ', '口と鼻を閉じ', '口も閉じ', '鼻をつまんで口を閉じ'];
+
+  it.each(MODULE_FILES.map((f) => [label(f), f]))('%s に両方を閉じさせる表現がない', (_, file) => {
+    for (const phrase of FORBIDDEN) {
+      for (const text of displayStrings(file)) expect(text.includes(phrase), `${label(file)}: ${phrase}`).toBe(false);
+    }
+  });
+});
+
 describe('Service Worker のテンプレート', () => {
   it.each(['__VERSION__', '__PRECACHE__'])('%s はビルド時の置換先として1回だけ現れる', (placeholder) => {
     const template = read(join(SRC, 'platform', 'sw.template.js'));

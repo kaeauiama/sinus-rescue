@@ -1378,6 +1378,35 @@ input[type='time'] {
   background: var(--brand);
 }
 
+.cue {
+  align-self: center;
+  margin: 18px auto 0;
+  padding: 6px 16px;
+  border-radius: 18px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.block-list li {
+  gap: 4px;
+}
+
+.block-list .settings {
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.block-list .grow {
+  min-height: 44px;
+  font-size: 15px;
+}
+
 .tuner {
   position: relative;
   height: 72px;

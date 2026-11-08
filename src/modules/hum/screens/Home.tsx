@@ -3,18 +3,9 @@ import { Icon } from '../../../platform/icons';
 import { Group, ListRow, Screen } from '../../../platform/ui';
 import { useHum } from '../context';
 import { noteName } from '../domain/dsp';
-import {
-  buildPlan,
-  DEFAULT_SESSION,
-  planSummary,
-  planTones,
-  resumableProgress,
-  SETTING_PROGRESS,
-  SETTING_SESSION,
-  type SessionProgress,
-  type SessionSettings,
-} from '../domain/session';
-import { CONDITION_LABELS, conditionOn, currentExperiment, tonesForToday } from '../domain/experiment';
+import { programSummary, SETTING_POSTURE_SEEN, todayPlan, usesPosture } from '../domain/programs';
+import { resumableProgress, SETTING_PROGRESS, type SessionProgress } from '../domain/session';
+import { CONDITION_LABELS, conditionOn, currentExperiment } from '../domain/experiment';
 import { toneLabel } from '../domain/sites';
 import { currentTones, latestProfile } from '../domain/tones';
 
@@ -23,18 +14,24 @@ export function Home() {
   const today = logicalDay(new Date());
   const profile = latestProfile(events);
   const tones = currentTones(events);
-  const stored = { ...DEFAULT_SESSION, ...(settings[SETTING_SESSION] as Partial<SessionSettings> | undefined) };
-  const plan = buildPlan(stored, planTones(stored, tonesForToday(events, tones), profile));
+  const plan = todayPlan(events, settings, today);
   const progress = resumableProgress(settings[SETTING_PROGRESS] as SessionProgress | undefined, plan, today);
   const experiment = currentExperiment(events);
   const condition = experiment && conditionOn(experiment, today);
-  const timer = () => openWithoutMic({ name: 'session', mode: 'timer' });
 
-  const resume = () => {
-    if (!progress) return;
-    const route = { name: 'session', mode: progress.mode, resumeFrom: progress.cursor } as const;
-    if (progress.mode === 'tuner') openWithMic(route);
+  // 狭める、つまむ構えを初めて使うときは、先に構えの説明を1回だけ見せる。
+  const start = (mode: 'tuner' | 'timer', resumeFrom?: number) => {
+    if (usesPosture(plan) && !settings[SETTING_POSTURE_SEEN]) {
+      go({ name: 'postureGuide', then: { mode, resumeFrom } });
+      return;
+    }
+    const route = { name: 'session', mode, resumeFrom } as const;
+    if (mode === 'tuner') openWithMic(route);
     else openWithoutMic(route);
+  };
+  const timer = () => start('timer');
+  const resume = () => {
+    if (progress) start(progress.mode, progress.cursor);
   };
 
   const head = (
@@ -68,10 +65,10 @@ export function Home() {
       {head}
       <section class="hero hero-violet">
         <p class="hero-label">今日のハミング</p>
-        <p class="hero-value">{planSummary(plan)}</p>
+        <p class="hero-value">{programSummary(plan)}</p>
         <div class="hero-links">
-          <button type="button" class="hero-chip" onClick={() => go({ name: 'plan' })}>
-            内容を変える
+          <button type="button" class="hero-chip" onClick={() => go({ name: 'programs' })}>
+            メニューを変える
           </button>
           {experiment && (
             <button type="button" class="hero-chip" onClick={() => go({ name: 'experiment' })}>
@@ -82,7 +79,7 @@ export function Home() {
         <button
           type="button"
           class="hero-button"
-          onClick={progress ? resume : () => openWithMic({ name: 'session', mode: 'tuner' })}
+          onClick={progress ? resume : () => start('tuner')}
         >
           <Icon name="play" size={20} />
           {progress ? '続きから始める' : 'ハミングを始める'}
@@ -107,7 +104,7 @@ export function Home() {
       <Group title="ほかの使い方">
         <ListRow icon="clock" tone="indigo" label="タイマーだけ使う" sub="音を鳴らさず合図だけ出します" onClick={timer} />
         {!experiment && (
-          <ListRow icon="shuffle" tone="amber" label="比べる" sub="登録した音と楽な高さの音を交互に使います" onClick={() => go({ name: 'experiment' })} />
+          <ListRow icon="shuffle" tone="amber" label="比べる" sub="登録した音と楽な高さを交互に使う" onClick={() => go({ name: 'experiment' })} />
         )}
       </Group>
     </Screen>

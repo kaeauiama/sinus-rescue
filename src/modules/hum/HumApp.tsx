@@ -16,6 +16,9 @@ import { MicError } from './screens/MicError';
 import { Morning } from './screens/Morning';
 import { Notice } from './screens/Notice';
 import { PlanSettings } from './screens/PlanSettings';
+import { PostureGuide } from './screens/PostureGuide';
+import { ProgramEdit } from './screens/ProgramEdit';
+import { ProgramDetail, Programs } from './screens/Programs';
 import { Records } from './screens/Records';
 import { Register } from './screens/Register';
 import { Session } from './screens/Session';
@@ -48,6 +51,14 @@ function Screens({ route }: { route: Route }) {
       return <Session mode={route.mode} resumeFrom={route.resumeFrom} />;
     case 'plan':
       return <PlanSettings />;
+    case 'programs':
+      return <Programs />;
+    case 'program':
+      return <ProgramDetail key={route.programId} programId={route.programId} />;
+    case 'programEdit':
+      return <ProgramEdit key={route.programId ?? 'new'} programId={route.programId} />;
+    case 'postureGuide':
+      return <PostureGuide {...route} />;
     case 'experiment':
       return <ExperimentScreen />;
     case 'records':
