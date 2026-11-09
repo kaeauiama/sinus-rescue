@@ -21,6 +21,7 @@ export function Tags({ day }: { day: string }) {
   return (
     <Screen
       title="今日あったことは"
+      onBack={() => go({ name: 'today', day })}
       note="なければ、そのまま進んでください。"
       actions={
         <Btn primary onClick={save}>

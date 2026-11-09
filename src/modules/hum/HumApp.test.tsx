@@ -9,7 +9,13 @@ import { DEFAULT_SESSION, KIND_SESSION, SETTING_SESSION } from './domain/session
 import { KIND_PROFILE, KIND_TONE } from './domain/tones';
 import { HumApp } from './HumApp';
 
-afterEach(cleanup);
+const marked = () => Boolean((history.state as Record<string, unknown> | null)?.sinusRescueBack);
+
+// 画面を外すと戻るの目印も外れる。次のテストに持ち越さないよう、外れるまで待つ。
+afterEach(async () => {
+  cleanup();
+  await waitFor(() => expect(marked()).toBe(false));
+});
 
 describe('初回の注意書き(HC-3)', () => {
   it('初回は全員に表示する', async () => {
@@ -180,6 +186,42 @@ describe('比較実験', () => {
     fireEvent.click(await screen.findByText('比べる'));
     await screen.findByText(/先に響く音を1つ登録/);
     expect(screen.queryByText('始める')).toBeNull();
+  });
+});
+
+describe('端末の戻る操作', () => {
+  const ready = async () => {
+    const store = createMemoryStore();
+    await store.setSetting(SETTING_NOTICE, '2026-11-04T00:00:00Z');
+    await store.setSetting(SETTING_MORNING_SKIPPED, logicalDay(new Date()));
+    await store.addEvents([createEvent(KIND_PROFILE, { comfortHz: 139, lowHz: 98, falsettoHz: null })]);
+    return store;
+  };
+  // 画面が替わって履歴の目印がそろってから押す(人の操作より速く押すと、jsdom では1回分がまとまる)。
+  const pressBack = async () => {
+    await waitFor(() => expect(marked()).toBe(true));
+    history.back();
+  };
+
+  it('メニューの詳細から、一覧、ホームと1画面ずつ戻る', async () => {
+    render(<HumApp store={await ready()} />);
+    fireEvent.click(await screen.findByText('メニューを変える'));
+    fireEvent.click(await screen.findByText('山道'));
+    await screen.findByText('これにする');
+    await pressBack();
+    await screen.findByText('規定のメニュー');
+    await pressBack();
+    await screen.findByText('今日のハミング');
+  });
+
+  it('削除の確認で戻ると、削除せずに設定へ戻る', async () => {
+    const store = await ready();
+    render(<HumApp store={store} entry="settings" />);
+    fireEvent.click(await screen.findByText('すべてのデータを削除する'));
+    await screen.findByText('すべてのデータを削除しますか');
+    await pressBack();
+    await screen.findByText('すべてのデータを削除する');
+    expect(await store.loadEvents()).toHaveLength(1);
   });
 });
 

@@ -19,6 +19,7 @@ export function MicError({ code }: { code: MicFailure }) {
   return (
     <Screen
       title={message.title}
+      onBack={() => go({ name: 'home' })}
       note={`${message.note}（${code}）`}
       actions={
         <>

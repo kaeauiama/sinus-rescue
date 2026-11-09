@@ -146,6 +146,10 @@ export function Setup({ then }: { then?: 'register' }) {
     return (
       <Screen
         title="裏声も測りますか"
+        onBack={async () => {
+          await finish(null);
+          home();
+        }}
         note="額など、裏声で響く場所を探すときに使います。あとからでも測れます。"
         actions={
           <>
@@ -165,6 +169,7 @@ export function Setup({ then }: { then?: 'register' }) {
   return (
     <Screen
       title="測定しました"
+      onBack={home}
       actions={
         <Btn primary onClick={() => go(then === 'register' ? { name: 'register' } : { name: 'home' })}>
           {then === 'register' ? '音の登録へ' : '始める'}

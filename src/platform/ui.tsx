@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact';
+import { useBack } from './back';
 import { Icon, type IconName } from './icons';
 
 interface ScreenProps {
@@ -6,6 +7,8 @@ interface ScreenProps {
   note?: ComponentChildren;
   progress?: number;
   onClose?: () => void;
+  // 端末の戻る操作で呼ぶ処理。省略すると onClose と同じ。どちらも無い画面では、端末の戻るはアプリを離れる。
+  onBack?: () => void;
   closeLabel?: string;
   centered?: boolean;
   align?: 'middle' | 'top';
@@ -21,6 +24,7 @@ export function Screen({
   note,
   progress,
   onClose,
+  onBack,
   closeLabel = '閉じる',
   centered = false,
   align = 'middle',
@@ -28,6 +32,7 @@ export function Screen({
   actions,
   footer,
 }: ScreenProps) {
+  useBack(onBack ?? onClose);
   return (
     <div class={`screen ${align === 'top' ? 'page' : 'flow'} ${footer ? 'with-tabs' : ''}`}>
       <header class="screen-head">

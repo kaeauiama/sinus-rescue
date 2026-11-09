@@ -62,6 +62,7 @@ export function Weekly() {
     return (
       <Screen
         title="いつもの香りを嗅いでみてください"
+        onBack={() => save(record)}
         note="毎週同じものを使うと、自分の中での変化を見られます。"
         actions={
           <>
@@ -98,6 +99,7 @@ export function Weekly() {
   return (
     <Screen
       title="今週、洗浄の器具を洗いましたか"
+      onBack={() => save({ ...record, cleaned: null })}
       actions={
         <div class="choices">
           <Btn onClick={() => save({ ...record, cleaned: true })}>はい</Btn>

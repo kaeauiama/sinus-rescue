@@ -14,7 +14,7 @@ export function ToneDetail({ toneId }: { toneId: string }) {
   const tone = currentTones(events).find((t) => t.toneId === toneId);
   const home = () => go({ name: 'home' });
   if (!tone) {
-    return <Screen title="この音は削除されています" actions={<Btn onClick={home}>ホームへ</Btn>} />;
+    return <Screen title="この音は削除されています" onBack={home} actions={<Btn onClick={home}>ホームへ</Btn>} />;
   }
 
   const play = async () => {
@@ -30,6 +30,7 @@ export function ToneDetail({ toneId }: { toneId: string }) {
     return (
       <Screen
         title={`${toneLabel(tone.site)}を削除しますか`}
+        onBack={() => setConfirming(false)}
         note="これまでの記録は残ります。"
         actions={
           <>

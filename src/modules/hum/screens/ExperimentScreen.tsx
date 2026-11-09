@@ -74,6 +74,7 @@ export function ExperimentScreen() {
       return (
         <Screen
           title="比較をやめますか"
+          onBack={() => setConfirming(false)}
           note="ここまでの記録は残りますが、結果は出せなくなります。"
           actions={
             <>

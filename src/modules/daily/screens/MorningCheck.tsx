@@ -49,6 +49,7 @@ export function MorningCheck() {
     return (
       <Screen
         title="昨夜の眠りは"
+        onBack={() => go({ name: 'today' })}
         note="0 眠れなかった　10 よく眠れた"
         actions={
           <>
@@ -70,6 +71,7 @@ export function MorningCheck() {
   return (
     <Screen
       title="何時間くらい眠りましたか"
+      onBack={() => finish(null)}
       actions={
         <>
           <div class="choices row-3">

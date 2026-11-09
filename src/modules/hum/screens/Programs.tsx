@@ -102,7 +102,7 @@ export function ProgramDetail({ programId }: { programId: string }) {
   const { program: selected, locked } = selectedProgram(events, settings, logicalDay(new Date()));
   const back = () => go({ name: 'programs' });
   if (!program) {
-    return <Screen title="このメニューは削除されています" actions={<Btn onClick={back}>一覧へ</Btn>} />;
+    return <Screen title="このメニューは削除されています" onBack={back} actions={<Btn onClick={back}>一覧へ</Btn>} />;
   }
   const contact = Boolean(settings[SETTING_COMPARE_CONTACT]);
   const usesPinch = program.blocks.some((b) => b.nose !== 'open');
@@ -129,6 +129,7 @@ export function ProgramDetail({ programId }: { programId: string }) {
     return (
       <Screen
         title={`「${program.name}」を削除しますか`}
+        onBack={() => setConfirming(false)}
         note="これまでの記録は残ります。"
         actions={
           <>

@@ -141,6 +141,7 @@ function FindAuto({ site, onFound, onSwitch, onBack }: { site: SiteId; onFound: 
     return (
       <Screen
         title="はっきり響く音はありませんでした"
+        onBack={onBack}
         note="自分で声を上下させて探すと、見つかることがあります。"
         actions={
           <>
@@ -179,6 +180,7 @@ function FindAuto({ site, onFound, onSwitch, onBack }: { site: SiteId; onFound: 
     return (
       <Screen
         title={`1オクターブ${lower ? '低い' : '高い'}音でした`}
+        onBack={onBack}
         note="同じ高さで出すのが難しければ、そのまま続けられます。"
         progress={progress}
         actions={
@@ -259,6 +261,7 @@ function Confirm({ site, initialHz, candidates, onConfirm, onBack }: ConfirmProp
     return (
       <Screen
         title={`${siteOf(site).name}の響きは`}
+        onBack={() => setPhase('adjust')}
         note={noteLabel(hz)}
         actions={
           <>
@@ -417,6 +420,10 @@ export function Register({ toneId, site: initialSite }: RegisterProps) {
     return (
       <Screen
         title="今の鼻の通りは"
+        onBack={async () => {
+          await save(null);
+          home();
+        }}
         note="響き方は鼻の通りで変わることがあるので、一緒に残します。"
         actions={
           <>
@@ -434,6 +441,7 @@ export function Register({ toneId, site: initialSite }: RegisterProps) {
   return (
     <Screen
       title="登録しました"
+      onBack={home}
       actions={
         <>
           <Btn primary onClick={home}>

@@ -1,4 +1,6 @@
 import { useCallback, useErrorBoundary, useEffect, useState } from 'preact/hooks';
+import { installBack } from '../platform/back';
+import { installEdgeSwipe } from '../platform/edgeSwipe';
 import { registerServiceWorker } from '../platform/pwa';
 import { openStore, type AppStore } from '../platform/store';
 import { Btn, Group, ListRow, Screen, TabBar, type TabItem } from '../platform/ui';
@@ -88,6 +90,8 @@ export function App() {
   const [error, reset] = useErrorBoundary();
 
   useEffect(() => {
+    installBack();
+    installEdgeSwipe();
     void openStore().then(setStore);
     void registerServiceWorker();
   }, []);

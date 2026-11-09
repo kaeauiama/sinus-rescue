@@ -12,6 +12,7 @@ export function HumSettings() {
     return (
       <Screen
         title="すべてのデータを削除しますか"
+        onBack={() => setConfirming(false)}
         note="登録した音と記録がこの端末から消え、元に戻せません。必要なら先に書き出してください。"
         actions={
           <>

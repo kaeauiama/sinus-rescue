@@ -187,10 +187,17 @@ export function Session({ mode, resumeFrom }: SessionProps) {
     setStage('done');
   };
 
+  // 終わったあとの質問で戻ったら、残りは答えずに記録してホームへ戻る。
+  const leave = async () => {
+    await save(null);
+    home();
+  };
+
   if (stage === 'drainage') {
     return (
       <Screen
         title="流れる感じはありましたか"
+        onBack={leave}
         actions={
           <>
             <Btn onClick={() => { setDrainage('none'); setStage('nose'); }}>なかった</Btn>
@@ -205,6 +212,7 @@ export function Session({ mode, resumeFrom }: SessionProps) {
     return (
       <Screen
         title="始める前と比べて、鼻の通りは"
+        onBack={leave}
         actions={
           <>
             <Btn onClick={() => save('better')}>良くなった</Btn>
@@ -223,6 +231,7 @@ export function Session({ mode, resumeFrom }: SessionProps) {
     return (
       <Screen
         title={completed ? '記録しました' : '途中までを記録しました'}
+        onBack={home}
         note={completed ? undefined : '今日のうちなら、ホームから続きを始められます。'}
         align={rated.length ? 'top' : 'middle'}
         actions={
