@@ -26,6 +26,8 @@ function pwaAssets(): Plugin {
         icons: [
           { src: './icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: './icon-512.png', sizes: '512x512', type: 'image/png' },
+          // 形はマスクの安全域に収めてある(tools/make-icons.mjs で確かめる)ので、Android の切り抜きにも同じ画像を使う。
+          { src: './icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       };
       this.emitFile({ type: 'asset', fileName: 'manifest.webmanifest', source: JSON.stringify(manifest, null, 2) });
