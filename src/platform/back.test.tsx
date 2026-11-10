@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { unmountAll } from './testing';
 import { useState } from 'preact/hooks';
 import { COMMIT_PX, EDGE_PX, swipeCommits, swipeMove, swipeStart } from './edgeSwipe';
 import { Screen } from './ui';
@@ -33,7 +34,7 @@ function Demo() {
 }
 
 afterEach(async () => {
-  cleanup();
+  unmountAll();
   await waitFor(() => expect(marked()).toBe(false));
 });
 

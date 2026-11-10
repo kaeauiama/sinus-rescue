@@ -1,9 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
+import { unmountAll } from '../platform/testing';
 import { createMemoryStore } from '../platform/store';
 import { SETTING_NOTICE } from '../modules/hum/context';
 import { SETTING_MODULES, Shell } from './App';
 
-afterEach(cleanup);
+afterEach(unmountAll);
 
 async function humOnlyStore() {
   const store = createMemoryStore();

@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { unmountAll } from '../../platform/testing';
 import { addDays, createEvent, logicalDay } from '../../platform/events';
 import { createMemoryStore } from '../../platform/store';
 import { SETTING_MORNING_SKIPPED } from '../hum/domain/history';
@@ -8,7 +9,7 @@ import { KIND_SYMPTOM, SYMPTOMS } from './domain/symptoms';
 import { DAILY_NOTICE_LINES } from './copy';
 import { DailyApp } from './DailyApp';
 
-afterEach(cleanup);
+afterEach(unmountAll);
 
 async function openedStore() {
   const store = createMemoryStore();

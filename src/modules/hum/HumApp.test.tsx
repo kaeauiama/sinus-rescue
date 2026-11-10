@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { unmountAll } from '../../platform/testing';
 import { createEvent, logicalDay } from '../../platform/events';
 import { createMemoryStore } from '../../platform/store';
 import { DANGER_SIGNS, NOTICE_LINES } from './copy';
@@ -13,7 +14,7 @@ const marked = () => Boolean((history.state as Record<string, unknown> | null)?.
 
 // 画面を外すと戻るの目印も外れる。次のテストに持ち越さないよう、外れるまで待つ。
 afterEach(async () => {
-  cleanup();
+  unmountAll();
   await waitFor(() => expect(marked()).toBe(false));
 });
 
