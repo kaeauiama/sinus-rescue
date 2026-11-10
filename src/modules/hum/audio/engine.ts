@@ -39,6 +39,11 @@ export class AudioEngine {
     return this.ctx?.sampleRate ?? 48000;
   }
 
+  // 読み取る波形の中心は、読んだ時刻より窓の半分だけ前にある。声の跡と判定はこの分を引いて扱う。
+  get frameLagMs(): number {
+    return (FFT_SIZE / 2 / this.sampleRate) * 1000;
+  }
+
   get micActive(): boolean {
     return Boolean(this.sim) || this.stream?.getAudioTracks()[0]?.readyState === 'live';
   }
@@ -93,8 +98,7 @@ export class AudioEngine {
     }
   }
 
-  // glide を渡すと、その秒数で toHz まで指数的に高さを動かす(スロープの基準音)。
-  startTone(hz: number, glide?: { toHz: number; sec: number }): () => void {
+  startTone(hz: number): () => void {
     const ctx = this.ctx;
     if (!ctx || !this.wave) return () => {};
     const osc = ctx.createOscillator();
@@ -102,7 +106,6 @@ export class AudioEngine {
     osc.setPeriodicWave(this.wave);
     const now = ctx.currentTime;
     osc.frequency.setValueAtTime(hz, now);
-    if (glide) osc.frequency.exponentialRampToValueAtTime(glide.toHz, now + glide.sec);
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(TONE_LEVEL, now + FADE_SEC);
     osc.connect(gain);
@@ -120,8 +123,8 @@ export class AudioEngine {
     };
   }
 
-  playTone(hz: number, ms: number, toHz?: number): () => void {
-    const stop = this.startTone(hz, toHz ? { toHz, sec: ms / 1000 } : undefined);
+  playTone(hz: number, ms: number): () => void {
+    const stop = this.startTone(hz);
     const timer = setTimeout(stop, ms);
     return () => {
       clearTimeout(timer);

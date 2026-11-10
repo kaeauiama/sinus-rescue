@@ -59,6 +59,20 @@ export const BLOCK_MAX_HUMS = 20;
 export const BLOCK_MAX_SETS = 5;
 export const BLOCK_REST_CHOICES = [0, 30, 60, 120, 180];
 
+// 流れる帯(D-038)。帯の太さは片側の幅で、高さが一定の回は PITCH_TOLERANCE_CENTS を使う。
+export const GLIDE_TOLERANCE_CENTS = 70;
+// 滑らせる回の始めと終わりに、高さを止めておく長さ(1回の長さに対する割合。5秒なら0.8秒ずつ)
+export const GLIDE_HOLD_RATIO = 0.16;
+export const LANE_HISTORY_SEC = 1.4;
+export const LANE_PREVIEW_SEC = 3.6;
+// 1セットの回数がこれより多い(連続型など)ときは、結果の丸を並べない
+export const LANE_STAMP_MAX = 12;
+// 判定は帯の中にいた時間の割合。出だしは声が定まらないので数えない
+export const JUDGE_ONSET_MS = 400;
+export const GRADE_GREAT_RATIO = 0.8;
+export const GRADE_GOOD_RATIO = 0.5;
+export const GRADE_BAD_RATIO = 0.2;
+
 // 実施に数えるセッション。途中でやめた短いものは数えない
 export const SESSION_COUNTED_SEC = 60;
 

@@ -1,12 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { logicalDay } from '../../../platform/events';
 import { Btn, Screen } from '../../../platform/ui';
-import { HumPhase, useCountdown } from '../components/Phases';
+import { createLaneState, LaneBoard, type LaneBoardProps } from '../components/Lane';
+import { useCountdown, useFrames } from '../components/Phases';
 import { CONTACT_CUE, NOSE_CUES, NOSE_LABELS, NOSE_TITLES } from '../copy';
 import { useHum, useLatest, useWakeLock } from '../context';
 import { scaled } from '../debug';
-import { median, type TrackSummary } from '../domain/dsp';
+import { centsBetween, hzToMidi, median, summarizeTrack, type CapturePoint, type TrackSummary } from '../domain/dsp';
+import {
+  bandCents,
+  bandHz,
+  foldOctave,
+  gradeOf,
+  GRADES,
+  judgeHum,
+  laneSegments,
+  previousGrade,
+  setStamps,
+  type Grade,
+} from '../domain/lane';
+import { classifyCents, matchHint } from '../domain/match';
 import { SETTING_COMPARE_CONTACT, todayPlan } from '../domain/programs';
+import { FRAME_INTERVAL_MS, JUDGE_ONSET_MS, PITCH_TOLERANCE_CENTS, SETTLE_MS } from '../rules';
 import {
   KIND_SESSION,
   resumeCursor,
@@ -38,20 +53,98 @@ const RATINGS: { value: 1 | 2 | 3; label: string }[] = [
 
 const cueKey = (beat: { nose: Nose; flush?: boolean }) => (beat.flush ? 'flush' : beat.nose);
 
-function Breath({ beat, caption, tone, progress, withTone, onClose, onDone }: BeatProps<Extract<Beat, { kind: 'breath' }>> & { tone: PlanTone; withTone: boolean }) {
+interface BreathProps extends BeatProps<Extract<Beat, { kind: 'breath' }>> {
+  tone: PlanTone;
+  withTone: boolean;
+  board: LaneBoardProps | null;
+}
+
+function Breath({ beat, caption, tone, progress, withTone, board, onClose, onDone }: BreathProps) {
   const { engine } = useHum();
+  // 滑らせる回も、吸う間に鳴らすのは始めの高さだけにする。動きは流れてくる帯で見せる(D-038)。
   useEffect(() => {
     if (!withTone || beat.toneMs <= 0) return undefined;
-    return engine.playTone(tone.hz, scaled(beat.toneMs), tone.toHz);
+    return engine.playTone(tone.hz, scaled(beat.toneMs));
   }, [engine, tone, beat, withTone]);
   const bar = useCountdown(scaled(beat.ms), onDone);
   const title = beat.flush ? '鼻を離して吸う' : withTone && beat.toneMs > 0 ? '吸いながら聞く' : '息を吸う';
   return (
     <Screen centered progress={progress} onClose={onClose} closeLabel="終える" title={title} note={caption}>
       {beat.nose !== 'open' && <p class="cue">{`次は${NOSE_LABELS[beat.nose]}: ${NOSE_CUES[beat.nose]}`}</p>}
-      <div class="timebar">
-        <span ref={bar} />
-      </div>
+      {board ? (
+        <LaneBoard {...board} />
+      ) : (
+        <div class="timebar">
+          <span ref={bar} />
+        </div>
+      )}
+    </Screen>
+  );
+}
+
+interface LaneHumProps extends Omit<BeatProps<Extract<Beat, { kind: 'hum' }>>, 'onDone'> {
+  tone: PlanTone;
+  title: string;
+  cue: string;
+  board: LaneBoardProps;
+  onDone: (summary: TrackSummary) => void;
+}
+
+// 流れる帯に合わせる「んー」。声の跡と判定は、検出の遅れの分だけ前の時刻として扱う。
+function LaneHum({ beat, tone, title, caption, cue, progress, board, onClose, onDone }: LaneHumProps) {
+  const { engine } = useHum();
+  const hint = useRef<HTMLParagraphElement>(null);
+  const points = useRef<CapturePoint[]>([]);
+  const duration = scaled(beat.ms);
+  const lane = board.state;
+
+  useEffect(() => {
+    engine.simulateHum(bandHz(tone, 0, duration));
+    return () => {
+      engine.simulateHum(null);
+      lane.live = null;
+    };
+  }, [engine, tone, duration, lane]);
+
+  useFrames(true, (point) => {
+    const lag = engine.frameLagMs;
+    const t = point.t - lag;
+    if (tone.toHz) engine.simulateHum(bandHz(tone, point.t, duration));
+    points.current.push({ ...point, t });
+    if (point.f0 == null) {
+      lane.live = null;
+      if (hint.current) hint.current.textContent = ' ';
+      return;
+    }
+    const target = bandHz(tone, t, duration);
+    const raw = centsBetween(point.f0, target);
+    const cents = foldOctave(raw);
+    const p = { at: performance.now() - lag, midi: hzToMidi(target) + cents / 100, inside: Math.abs(cents) <= bandCents(tone) };
+    lane.trace.push(p);
+    lane.live = p;
+    const kind = classifyCents(raw);
+    if (hint.current) hint.current.textContent = kind === 'octave-low' || kind === 'octave-high' ? matchHint(raw) : ' ';
+  });
+
+  useCountdown(duration, () => {
+    const summary = summarizeTrack(points.current, {
+      settleMs: Math.min(scaled(SETTLE_MS), duration / 2),
+      targetHz: tone.toHz ? null : tone.hz,
+      toleranceCents: PITCH_TOLERANCE_CENTS,
+      frameMs: FRAME_INTERVAL_MS,
+    });
+    // 記録する割合も、画面の判定と同じ帯で数える。
+    summary.inTuneRatio = judgeHum(points.current, tone, duration, Math.min(scaled(JUDGE_ONSET_MS), duration / 4));
+    onDone(summary);
+  });
+
+  return (
+    <Screen centered progress={progress} onClose={onClose} closeLabel="終える" title={title} note={caption}>
+      <p class="cue">{cue}</p>
+      <LaneBoard {...board} />
+      <p class="note center" ref={hint} aria-live="polite">
+        &nbsp;
+      </p>
     </Screen>
   );
 }
@@ -126,6 +219,11 @@ export function Session({ mode, resumeFrom }: SessionProps) {
   );
   const levels = useRef(new Map<number, number[]>());
   const postures = useRef(new Map<number, PostureResult>());
+  // 流れる帯の状態と、拍の位置ごとの判定。どちらも拍をまたいで持ち越す。
+  const lane = useRef(createLaneState());
+  const grades = useRef(new Map<number, Grade>());
+  const beatStartedAt = useMemo(() => performance.now(), [cursor]);
+  const segments = useMemo(() => (mode === 'tuner' ? laneSegments(plan, cursor, (b) => scaled(b.ms)) : []), [cursor]);
   const home = () => go({ name: 'home' });
   const totalHums = () => results.current.reduce((sum, r) => sum + r.hums, 0);
 
@@ -156,6 +254,7 @@ export function Session({ mode, resumeFrom }: SessionProps) {
     if (!beat.flush && summary?.levelDb != null) {
       levels.current.set(beat.part, [...(levels.current.get(beat.part) ?? []), summary.levelDb]);
     }
+    if (!beat.flush && summary) grades.current.set(cursor, gradeOf(summary.inTuneRatio));
     result.hums += 1;
     saveProgress(cursor + 1);
     advance();
@@ -228,18 +327,32 @@ export function Session({ mode, resumeFrom }: SessionProps) {
   }
   if (stage === 'done') {
     const rated = postureList().sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    const judged = [...grades.current.values()];
     return (
       <Screen
         title={completed ? '記録しました' : '途中までを記録しました'}
         onBack={home}
         note={completed ? undefined : '今日のうちなら、ホームから続きを始められます。'}
-        align={rated.length ? 'top' : 'middle'}
+        align={rated.length || judged.length ? 'top' : 'middle'}
         actions={
           <Btn primary onClick={home}>
             ホームへ
           </Btn>
         }
       >
+        {judged.length > 0 && (
+          <>
+            <h2>判定</h2>
+            <dl class="result">
+              {GRADES.map((grade) => (
+                <div key={grade}>
+                  <dt>{grade}</dt>
+                  <dd>{`${judged.filter((g) => g === grade).length}回`}</dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        )}
         {rated.length > 0 && (
           <>
             <h2>{placement === 'contact' ? '構えくらべ(鼻の横で測った音量)' : '構えくらべ'}</h2>
@@ -293,25 +406,36 @@ export function Session({ mode, resumeFrom }: SessionProps) {
   }
 
   const caption = `${tone.label}　${beat.rep + 1} / ${beat.reps}`;
+  const board: LaneBoardProps | null =
+    mode === 'tuner'
+      ? {
+          segments,
+          startedAt: beatStartedAt,
+          state: lane.current,
+          stamps: setStamps(plan, cursor, grades.current),
+          judge: previousGrade(plan, cursor, grades.current),
+        }
+      : null;
   if (beat.kind === 'breath') {
-    return <Breath key={cursor} beat={beat} tone={tone} withTone={mode === 'tuner'} caption={caption} progress={progress} onClose={close} onDone={advance} />;
+    return (
+      <Breath key={cursor} beat={beat} tone={tone} withTone={mode === 'tuner'} board={board} caption={caption} progress={progress} onClose={close} onDone={advance} />
+    );
   }
   const cue = placement === 'contact' && !beat.flush ? `${NOSE_CUES[cueKey(beat)]}。${CONTACT_CUE}` : NOSE_CUES[cueKey(beat)];
-  if (mode === 'timer') {
+  if (!board) {
     return <TimerHum key={cursor} beat={beat} cue={cue} caption={caption} progress={progress} onClose={close} onDone={() => recordHum(beat, null)} />;
   }
   return (
-    <HumPhase
+    <LaneHum
       key={cursor}
-      targetHz={tone.hz}
-      toHz={tone.toHz}
-      ms={beat.ms}
+      beat={beat}
+      tone={tone}
       title={NOSE_TITLES[cueKey(beat)]}
       caption={caption}
       cue={cue}
       progress={progress}
+      board={board}
       onClose={close}
-      closeLabel="終える"
       onDone={(summary) => recordHum(beat, summary)}
     />
   );

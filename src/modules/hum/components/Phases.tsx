@@ -76,25 +76,18 @@ export function ListenPhase({ hz, ms, progress, caption, onClose, onDone }: List
 interface HumProps {
   targetHz: number;
   ms: number;
-  title?: string;
-  caption?: string;
-  cue?: string;
-  toHz?: number;
   progress?: number;
   onClose?: () => void;
-  closeLabel?: string;
   onDone: (summary: TrackSummary) => void;
 }
 
-// toHz があるときは、目標の高さが時間とともに toHz へ動く(スロープ)。
-export function HumPhase({ targetHz, toHz, ms, title = '同じ高さで「んー」', caption, cue, progress, onClose, closeLabel, onDone }: HumProps) {
+// 登録で使う音程合わせ。目標とのずれを左右の点で示す。今日のハミングは流れる帯を使う(D-038)。
+export function HumPhase({ targetHz, ms, progress, onClose, onDone }: HumProps) {
   const { engine } = useHum();
   const dot = useRef<HTMLSpanElement>(null);
   const hint = useRef<HTMLParagraphElement>(null);
   const points = useRef<CapturePoint[]>([]);
-  const glideInTune = useRef(0);
   const duration = scaled(ms);
-  const targetAt = (t: number) => (toHz ? targetHz * (toHz / targetHz) ** Math.min(1, t / duration) : targetHz);
 
   useEffect(() => {
     engine.simulateHum(targetHz);
@@ -103,15 +96,12 @@ export function HumPhase({ targetHz, toHz, ms, title = '同じ高さで「んー
 
   useFrames(true, (point) => {
     points.current.push(point);
-    const target = targetAt(point.t);
-    if (toHz) engine.simulateHum(target);
-    if (toHz && point.f0 != null && Math.abs(centsBetween(point.f0, target)) <= PITCH_TOLERANCE_CENTS) glideInTune.current += 1;
     if (!dot.current || !hint.current) return;
     if (point.f0 == null) {
       dot.current.classList.remove('visible');
       return;
     }
-    const cents = centsBetween(point.f0, target);
+    const cents = centsBetween(point.f0, targetHz);
     const clamped = Math.max(-DOT_RANGE_CENTS, Math.min(DOT_RANGE_CENTS, cents));
     dot.current.classList.add('visible');
     dot.current.classList.toggle('in-tune', classifyCents(cents) === 'in-tune');
@@ -121,19 +111,11 @@ export function HumPhase({ targetHz, toHz, ms, title = '同じ高さで「んー
 
   const bar = useCountdown(duration, () => {
     const settleMs = Math.min(scaled(SETTLE_MS), duration / 2);
-    const summary = summarizeTrack(points.current, {
-      settleMs,
-      targetHz: toHz ? null : targetHz,
-      toleranceCents: PITCH_TOLERANCE_CENTS,
-      frameMs: FRAME_INTERVAL_MS,
-    });
-    if (toHz) summary.inTuneRatio = summary.frames ? glideInTune.current / points.current.length : 0;
-    onDone(summary);
+    onDone(summarizeTrack(points.current, { settleMs, targetHz, toleranceCents: PITCH_TOLERANCE_CENTS, frameMs: FRAME_INTERVAL_MS }));
   });
 
   return (
-    <Screen centered progress={progress} onClose={onClose} closeLabel={closeLabel} title={title} note={caption}>
-      {cue && <p class="cue">{cue}</p>}
+    <Screen centered progress={progress} onClose={onClose} title="同じ高さで「んー」">
       <div class="tuner" aria-hidden="true">
         <span class="tuner-line" />
         <span class="tuner-center" />

@@ -136,6 +136,30 @@ describe('ハミングのメニュー', () => {
     }
   });
 
+  it('マイクを使うときは、流れる帯と、そのセットの結果の丸を出す(D-038)', async () => {
+    class MicAudioContext extends FakeAudioContext {
+      createMediaStreamSource() {
+        return { connect() {}, disconnect() {} };
+      }
+    }
+    const track = { readyState: 'live', stop() {} };
+    const stream = { getAudioTracks: () => [track], getTracks: () => [track] };
+    vi.stubGlobal('AudioContext', MicAudioContext);
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: () => Promise.resolve(stream) } });
+    try {
+      const { container } = render(<HumApp store={await ready({ programId: 'slope' })} />);
+      fireEvent.click(await screen.findByText('ハミングを始める'));
+      await screen.findByText('吸いながら聞く');
+      expect(container.querySelector('svg.lane')).toBeTruthy();
+      expect(container.querySelector('.timebar')).toBeNull();
+      const stamps = [...container.querySelectorAll('.stamp')].map((el) => el.className);
+      expect(stamps).toEqual(['stamp current', ...Array(5).fill('stamp pending')]);
+    } finally {
+      vi.unstubAllGlobals();
+      Reflect.deleteProperty(navigator, 'mediaDevices');
+    }
+  });
+
   it('自分のメニューを作って、そのまま使える', async () => {
     const store = await ready();
     render(<HumApp store={store} />);

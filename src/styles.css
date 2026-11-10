@@ -1456,6 +1456,176 @@ input[type='time'] {
   box-shadow: 0 0 0 6px var(--accent-soft);
 }
 
+/* 流れる帯(D-038) */
+.lane-board {
+  margin-top: 28px;
+}
+
+.stamps {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.stamp {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+}
+
+.stamp.current {
+  border-color: var(--brand);
+}
+
+.stamp.great {
+  border-color: var(--teal);
+  background: var(--teal);
+}
+
+.stamp.good {
+  border-color: var(--indigo);
+  background: var(--indigo);
+}
+
+.stamp.bad {
+  border-color: var(--amber);
+  background: var(--amber);
+}
+
+.stamp.poor {
+  background: var(--line-strong);
+}
+
+.lane-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.lane {
+  display: block;
+  width: 100%;
+  height: 232px;
+}
+
+.lane-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.lane-band {
+  fill: var(--accent-soft);
+  stroke: var(--brand);
+  stroke-opacity: 0.5;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.lane-label {
+  fill: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.lane-now {
+  stroke: var(--line-strong);
+  stroke-width: 2;
+}
+
+.lane-trace {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.lane-trace.inside {
+  stroke: var(--brand);
+}
+
+.lane-dot {
+  fill: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.lane-dot.visible {
+  opacity: 1;
+}
+
+.lane-dot.inside {
+  fill: var(--brand);
+}
+
+.judge {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.08em;
+  text-align: center;
+  pointer-events: none;
+  animation: judge 1.6s ease-out forwards;
+}
+
+.judge:empty {
+  animation: none;
+}
+
+.judge.great {
+  color: var(--teal);
+}
+
+.judge.good {
+  color: var(--indigo);
+}
+
+.judge.bad {
+  color: var(--amber);
+}
+
+.judge.poor {
+  color: var(--muted);
+}
+
+@keyframes judge {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  25% {
+    transform: scale(1);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .judge {
+    animation: none;
+  }
+}
+
 .face {
   display: block;
   width: 168px;
