@@ -1527,6 +1527,45 @@ input[type='time'] {
   stroke-linejoin: round;
 }
 
+/* お手本の帯は、声を出さずに聞く区間なので点線にする(D-039) */
+.lane-band.demo {
+  fill-opacity: 0.5;
+  stroke-opacity: 0.8;
+  stroke-dasharray: 6 5;
+}
+
+.lane-ghost {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.lane-ghost.visible {
+  opacity: 0.6;
+}
+
+.lane-ghost.demo {
+  fill: var(--card);
+  stroke-width: 3;
+  stroke-dasharray: none;
+}
+
+.lane-ghost.demo.visible {
+  opacity: 1;
+}
+
+.lane-ghost-trail {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 1 5;
+  opacity: 0.7;
+}
+
 .lane-label {
   fill: var(--muted);
   font-size: 13px;

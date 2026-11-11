@@ -137,6 +137,19 @@ describe('ハミングのメニュー', () => {
     }
   });
 
+  it('タイマーだけのときは、音を聞かせるお手本を飛ばす(D-039)', async () => {
+    vi.stubGlobal('AudioContext', FakeAudioContext);
+    try {
+      const { container } = render(<HumApp store={await ready({ programId: 'slope' })} />);
+      fireEvent.click(await screen.findByText('タイマーだけ使う'));
+      await screen.findByText('息を吸う');
+      expect(screen.queryByText('お手本を聞く')).toBeNull();
+      expect(container.querySelector('.note')?.textContent).toBe('上へ滑らせる　1 / 6');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('マイクを使うときは、流れる帯と、そのセットの結果の丸を出す(D-038)', async () => {
     class MicAudioContext extends FakeAudioContext {
       createMediaStreamSource() {
@@ -150,11 +163,18 @@ describe('ハミングのメニュー', () => {
     try {
       const { container } = render(<HumApp store={await ready({ programId: 'slope' })} />);
       fireEvent.click(await screen.findByText('ハミングを始める'));
+      // 滑らせるメニューは、お手本から始まる(D-039)。
+      await screen.findByText('お手本を聞く');
+      expect(screen.getByText('上へ滑らせる → 下へ滑らせる')).toBeTruthy();
+      expect(container.querySelector('svg.lane .lane-band.demo')).toBeTruthy();
+      expect(container.querySelector('svg.lane .lane-ghost')).toBeTruthy();
+      const stampsOf = () => [...container.querySelectorAll('.stamp')].map((el) => el.className);
+      expect(stampsOf()).toEqual(Array(6).fill('stamp pending'));
+      fireEvent.click(screen.getByText('次へ進む'));
       await screen.findByText('吸いながら聞く');
       expect(container.querySelector('svg.lane')).toBeTruthy();
       expect(container.querySelector('.timebar')).toBeNull();
-      const stamps = [...container.querySelectorAll('.stamp')].map((el) => el.className);
-      expect(stamps).toEqual(['stamp current', ...Array(5).fill('stamp pending')]);
+      expect(stampsOf()).toEqual(['stamp current', ...Array(5).fill('stamp pending')]);
     } finally {
       vi.unstubAllGlobals();
       Reflect.deleteProperty(navigator, 'mediaDevices');

@@ -49,6 +49,8 @@ export interface PlanTone {
 export type Beat =
   | { kind: 'breath'; toneIndex: number; rep: number; reps: number; ms: number; toneMs: number; nose: Nose; flush?: boolean }
   | { kind: 'hum'; toneIndex: number; rep: number; reps: number; ms: number; nose: Nose; flush?: boolean; part: number }
+  // 滑らせるセットの頭で、帯の形をお手本の音と丸でなぞって見せる(D-039)。tones は見せる順の音、shapeMs は1つの長さ。
+  | { kind: 'demo'; toneIndex: number; tones: number[]; leadMs: number; shapeMs: number; ms: number }
   | { kind: 'rest'; toneIndex: number; ms: number }
   | { kind: 'rate'; toneIndex: number; ms: number; nose: Nose; part: number };
 
@@ -86,10 +88,10 @@ export function planSummary(plan: SessionPlan): string {
   return `${plan.tones.length}音 約${minutes}分`;
 }
 
-// 再開時は、途中のハミングの手前(息を吸う拍)まで戻す。
+// 再開時は、途中のハミングの手前(息を吸う拍か、お手本)まで戻す。
 export function resumeCursor(plan: SessionPlan, cursor: number): number {
   let index = Math.max(0, Math.min(cursor, plan.beats.length - 1));
-  while (index > 0 && plan.beats[index].kind !== 'breath') index--;
+  while (index > 0 && plan.beats[index].kind !== 'breath' && plan.beats[index].kind !== 'demo') index--;
   return index;
 }
 

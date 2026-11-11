@@ -12,6 +12,7 @@ import {
   CONTINUOUS_BREATH_SEC,
   CONTINUOUS_DEFAULT_HZ,
   CONTINUOUS_HUMS_PER_MIN,
+  DEMO_LEAD_SEC,
   GLIDE_HIGH_SEMITONES,
   GLIDE_LOW_SEMITONES,
   HILL_HIGH_SEMITONES,
@@ -279,8 +280,17 @@ export function expandProgram(program: Program, ctx: PitchContext, random: () =>
   });
 
   const beats: Beat[] = [];
+  // 直前に聞いたお手本の形。休憩や評価で途切れたら、もう一度聞かせる。
+  let demoed: string | null = null;
   chunks.forEach((chunk, chunkIndex) => {
     const { block: b, hums } = chunk;
+    const shapes = [...new Set(hums.filter((t) => t.toHz).map(indexOf))];
+    const shapeKey = shapes.length ? shapes.join(',') : null;
+    if (shapeKey && shapeKey !== demoed) {
+      const leadMs = DEMO_LEAD_SEC * 1000;
+      beats.push({ kind: 'demo', toneIndex: shapes[0], tones: shapes, leadMs, shapeMs: humMs, ms: leadMs + shapes.length * humMs });
+    }
+    demoed = shapeKey;
     hums.forEach((tone, rep) => {
       const toneIndex = indexOf(tone);
       const toneMs = continuous && rep > 0 ? 0 : Math.min(BREATH_TONE_SEC * 1000, breathMs);
@@ -294,6 +304,7 @@ export function expandProgram(program: Program, ctx: PitchContext, random: () =>
     const last = beats.at(-1) as Beat;
     if (chunk.lastOfBlock && b.rate) beats.push({ kind: 'rate', toneIndex: last.toneIndex, ms: 0, nose: b.nose, part: chunk.blockIndex });
     if (chunkIndex < chunks.length - 1 && b.restSec > 0) beats.push({ kind: 'rest', toneIndex: last.toneIndex, ms: b.restSec * 1000 });
+    if (beats.at(-1)?.kind === 'rate' || beats.at(-1)?.kind === 'rest') demoed = null;
   });
 
   const signature = JSON.stringify([program.id, program.pace, blocks, tones.map((t) => [Math.round(t.hz), Math.round(t.toHz ?? 0)])]);

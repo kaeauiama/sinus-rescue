@@ -7,7 +7,7 @@ import {
   GRADE_GREAT_RATIO,
   LANE_STAMP_MAX,
   OCTAVE_TOLERANCE_CENTS,
-  PITCH_TOLERANCE_CENTS,
+  STEADY_TOLERANCE_CENTS,
 } from '../rules';
 import { centsBetween, type CapturePoint } from './dsp';
 import type { Beat, PlanTone, SessionPlan } from './session';
@@ -16,7 +16,7 @@ export type Grade = 'GREAT' | 'GOOD' | 'BAD' | 'POOR';
 export const GRADES: Grade[] = ['GREAT', 'GOOD', 'BAD', 'POOR'];
 
 // 帯の片側の幅。高さが動く回は追いにくいので広くする。
-export const bandCents = (tone: PlanTone): number => (tone.toHz ? GLIDE_TOLERANCE_CENTS : PITCH_TOLERANCE_CENTS);
+export const bandCents = (tone: PlanTone): number => (tone.toHz ? GLIDE_TOLERANCE_CENTS : STEADY_TOLERANCE_CENTS);
 
 // 始まりから t ミリ秒での帯の中心。滑らせる回は始めと終わりで止まり、その間を半音の刻みで等速に動く。
 export function bandHz(tone: PlanTone, t: number, durationMs: number): number {
@@ -24,6 +24,21 @@ export function bandHz(tone: PlanTone, t: number, durationMs: number): number {
   const hold = durationMs * GLIDE_HOLD_RATIO;
   const f = Math.max(0, Math.min(1, (t - hold) / (durationMs - 2 * hold)));
   return tone.hz * (tone.toHz / tone.hz) ** f;
+}
+
+// お手本で鳴らす高さの道筋。帯の中心(bandHz)と同じ形を、続けてたどる。ms はお手本の帯の始まりから。
+export function demoPath(tones: PlanTone[], shapeMs: number): { ms: number; hz: number }[] {
+  const hold = shapeMs * GLIDE_HOLD_RATIO;
+  const path: { ms: number; hz: number }[] = [];
+  tones.forEach((tone, k) => {
+    const base = k * shapeMs;
+    const to = tone.toHz ?? tone.hz;
+    const last = path.at(-1);
+    if (!last) path.push({ ms: base, hz: tone.hz });
+    else if (last.hz !== tone.hz) path.push({ ms: base + 1, hz: tone.hz });
+    path.push({ ms: base + hold, hz: tone.hz }, { ms: base + shapeMs - hold, hz: to }, { ms: base + shapeMs, hz: to });
+  });
+  return path;
 }
 
 // ちょうど1オクターブずれた声は、検出の誤りのことも多いので、帯の高さに重ねて扱う。
@@ -49,29 +64,44 @@ export function gradeOf(ratio: number): Grade {
   return 'POOR';
 }
 
-// 帯に並べる1拍。start と end は今の拍の始まりを0としたミリ秒で、tone がなければ息を吸う間。
+// 帯に並べる1区間。start と end は今の拍の始まりを0としたミリ秒で、tone がなければ息を吸う間。
+// demo はお手本の帯で、声は出さずに聞くだけ。
 export interface LaneSegment {
   start: number;
   end: number;
   tone: PlanTone | null;
+  demo?: boolean;
 }
 
-const flows = (beat: Beat | undefined): beat is Extract<Beat, { kind: 'breath' | 'hum' }> =>
-  beat?.kind === 'breath' || beat?.kind === 'hum';
+type FlowBeat = Extract<Beat, { kind: 'breath' | 'hum' | 'demo' }>;
+
+const flows = (beat: Beat | undefined): beat is FlowBeat =>
+  beat?.kind === 'breath' || beat?.kind === 'hum' || beat?.kind === 'demo';
 
 // 今の拍の前後で、休憩や評価で途切れずに続く拍を並べる。先の帯の表示と、通り過ぎた帯の表示に使う。
-export function laneSegments(plan: SessionPlan, cursor: number, duration: (beat: Beat) => number): LaneSegment[] {
+// scale は拍の長さの換算(動作確認で待ち時間を縮めるときに使う)。
+export function laneSegments(plan: SessionPlan, cursor: number, scale: (ms: number) => number = (ms) => ms): LaneSegment[] {
   const beats = plan.beats;
   if (!flows(beats[cursor])) return [];
   let first = cursor;
   while (flows(beats[first - 1])) first--;
   let offset = 0;
-  for (let i = first; i < cursor; i++) offset -= duration(beats[i]);
+  for (let i = first; i < cursor; i++) offset -= scale(beats[i].ms);
   const segments: LaneSegment[] = [];
   for (let i = first; flows(beats[i]); i++) {
     const beat = beats[i];
-    const ms = duration(beat);
-    segments.push({ start: offset, end: offset + ms, tone: beat.kind === 'hum' ? plan.tones[beat.toneIndex] : null });
+    const ms = scale(beat.ms);
+    if (beat.kind === 'demo') {
+      // 始めの間は何も置かず、帯が今の線に届くのを待つ。
+      const lead = scale(beat.leadMs);
+      const shape = scale(beat.shapeMs);
+      beat.tones.forEach((toneIndex, k) => {
+        const start = offset + lead + k * shape;
+        segments.push({ start, end: start + shape, tone: plan.tones[toneIndex], demo: true });
+      });
+    } else {
+      segments.push({ start: offset, end: offset + ms, tone: beat.kind === 'hum' ? plan.tones[beat.toneIndex] : null });
+    }
     offset += ms;
   }
   return segments;
@@ -86,7 +116,13 @@ export type Stamp = Grade | 'current' | 'pending';
 
 export function setStamps(plan: SessionPlan, cursor: number, grades: ReadonlyMap<number, Grade>): Stamp[] {
   const beat = plan.beats[cursor];
-  if (!flows(beat) || beat.reps > LANE_STAMP_MAX) return [];
+  if (!flows(beat)) return [];
+  // お手本の間は、これから始まるセットの丸をすべて「まだ」で見せる。
+  if (beat.kind === 'demo') {
+    const next = plan.beats[cursor + 1];
+    return next?.kind === 'breath' && next.reps <= LANE_STAMP_MAX ? Array<Stamp>(next.reps).fill('pending') : [];
+  }
+  if (beat.reps > LANE_STAMP_MAX) return [];
   const stamps: Stamp[] = Array.from({ length: beat.reps }, (_, rep) => (rep === beat.rep ? 'current' : 'pending'));
   for (let i = cursor; flows(plan.beats[i]); i--) {
     const b = plan.beats[i];

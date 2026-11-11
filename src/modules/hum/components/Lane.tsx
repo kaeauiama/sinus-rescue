@@ -1,4 +1,5 @@
 // 流れる帯(D-038)。縦が声の高さ、横が時間。帯は右から流れてきて、縦線の位置が今。左には自分の声の跡が残る。
+// 帯の中心には丸(ゴースト)が乗っていて、それを追えば帯の中にいられる。お手本の帯は点線で、丸が音と一緒になぞる(D-039)。
 import { useEffect, useRef } from 'preact/hooks';
 import { hzToMidi } from '../domain/dsp';
 import { bandCents, bandHz, type Grade, type LaneSegment, type Stamp } from '../domain/lane';
@@ -72,14 +73,37 @@ function updateView(state: LaneState, hums: HumSegment[], clock: number) {
   state.drawnAt = clock;
 }
 
-function bandPath(s: HumSegment, from: number, to: number, x: (ms: number) => number, y: (midi: number) => number): string {
+const centerMidi = (s: HumSegment, ms: number) => hzToMidi(bandHz(s.tone, ms - s.start, s.end - s.start));
+
+// from から to までの帯の中心を、滑らせる回は細かく刻んで返す。
+function centerLine(s: HumSegment, from: number, to: number): { ms: number; midi: number }[] {
   const times = [from];
   if (s.tone.toHz) for (let ms = Math.ceil(from / STEP_MS) * STEP_MS; ms < to; ms += STEP_MS) if (ms > from) times.push(ms);
   times.push(to);
-  const half = bandCents(s.tone) / 100;
-  const mids = times.map((ms) => hzToMidi(bandHz(s.tone, ms - s.start, s.end - s.start)));
-  const top = times.map((ms, i) => `${fixed(x(ms))} ${fixed(y(mids[i] + half))}`);
-  const bottom = times.map((ms, i) => `${fixed(x(ms))} ${fixed(y(mids[i] - half))}`).reverse();
+  return times.map((ms) => ({ ms, midi: centerMidi(s, ms) }));
+}
+
+// 続けて並ぶ帯(お手本の上と下など)は、境目に線が入らないよう1つの形にまとめる。
+function runs(hums: HumSegment[]): HumSegment[][] {
+  const grouped: HumSegment[][] = [];
+  for (const s of hums) {
+    const last = grouped.at(-1);
+    if (last && last[last.length - 1].end === s.start) last.push(s);
+    else grouped.push([s]);
+  }
+  return grouped;
+}
+
+function bandPath(run: HumSegment[], from: number, to: number, x: (ms: number) => number, y: (midi: number) => number): string {
+  const edge = run.flatMap((s) => {
+    const a = Math.max(s.start, from);
+    const b = Math.min(s.end, to);
+    const half = bandCents(s.tone) / 100;
+    return b > a ? centerLine(s, a, b).map((p) => ({ ...p, half })) : [];
+  });
+  if (!edge.length) return '';
+  const top = edge.map((p) => `${fixed(x(p.ms))} ${fixed(y(p.midi + p.half))}`);
+  const bottom = edge.map((p) => `${fixed(x(p.ms))} ${fixed(y(p.midi - p.half))}`).reverse();
   return `M${top.join('L')}L${bottom.join('L')}Z`;
 }
 
@@ -87,6 +111,9 @@ function Lane({ segments, startedAt, state }: Pick<LaneBoardProps, 'segments' | 
   const svg = useRef<SVGSVGElement>(null);
   const grid = useRef<SVGPathElement>(null);
   const bands = useRef<SVGPathElement>(null);
+  const demoBands = useRef<SVGPathElement>(null);
+  const ghostTrail = useRef<SVGPathElement>(null);
+  const ghost = useRef<SVGCircleElement>(null);
   const outside = useRef<SVGPathElement>(null);
   const inside = useRef<SVGPathElement>(null);
   const now = useRef<SVGLineElement>(null);
@@ -96,7 +123,8 @@ function Lane({ segments, startedAt, state }: Pick<LaneBoardProps, 'segments' | 
   useEffect(() => {
     const paint = () => {
       const el = svg.current;
-      if (!el || !grid.current || !bands.current || !outside.current || !inside.current || !now.current || !dot.current) return;
+      if (!el || !grid.current || !bands.current || !demoBands.current || !outside.current || !inside.current) return;
+      if (!now.current || !dot.current || !ghost.current || !ghostTrail.current) return;
       const box = el.getBoundingClientRect();
       const w = box.width || 320;
       const h = box.height || 232;
@@ -120,10 +148,27 @@ function Lane({ segments, startedAt, state }: Pick<LaneBoardProps, 'segments' | 
       for (let m = Math.ceil(view.low); m <= view.high; m++) d += `M0 ${fixed(y(m))}H${fixed(w)}`;
       grid.current.setAttribute('d', d);
 
-      bands.current.setAttribute(
-        'd',
-        hums.map((s) => bandPath(s, Math.max(s.start, t - past), Math.min(s.end, t + future), x, y)).join(''),
-      );
+      const band = (run: HumSegment[]) => bandPath(run, t - past, t + future, x, y);
+      bands.current.setAttribute('d', runs(hums.filter((s) => !s.demo)).map(band).join(''));
+      demoBands.current.setAttribute('d', runs(hums.filter((s) => s.demo)).map(band).join(''));
+
+      // お手本の丸が通ったあとには、細い跡を残す。
+      let trail = '';
+      for (const s of hums) {
+        const from = Math.max(s.start, t - past);
+        const to = Math.min(s.end, t);
+        if (!s.demo || to <= from) continue;
+        trail += `M${centerLine(s, from, to).map((p) => `${fixed(x(p.ms))} ${fixed(clampedY(p.midi))}`).join('L')}`;
+      }
+      ghostTrail.current.setAttribute('d', trail);
+
+      const current = hums.find((s) => s.start <= t && t < s.end);
+      ghost.current.classList.toggle('visible', current != null);
+      ghost.current.classList.toggle('demo', current?.demo === true);
+      if (current) {
+        ghost.current.setAttribute('cx', fixed(xNow));
+        ghost.current.setAttribute('cy', fixed(clampedY(centerMidi(current, t))));
+      }
 
       const breaths = visible.filter((s) => s.tone == null);
       labels.current.forEach((label, i) => {
@@ -180,6 +225,7 @@ function Lane({ segments, startedAt, state }: Pick<LaneBoardProps, 'segments' | 
     <svg class="lane" ref={svg} aria-hidden="true">
       <path class="lane-grid" ref={grid} />
       <path class="lane-band" ref={bands} />
+      <path class="lane-band demo" ref={demoBands} />
       {Array.from({ length: LABELS }, (_, i) => (
         <text
           key={i}
@@ -193,8 +239,10 @@ function Lane({ segments, startedAt, state }: Pick<LaneBoardProps, 'segments' | 
         </text>
       ))}
       <line class="lane-now" ref={now} y1="0" />
+      <path class="lane-ghost-trail" ref={ghostTrail} />
       <path class="lane-trace" ref={outside} />
       <path class="lane-trace inside" ref={inside} />
+      <circle class="lane-ghost" ref={ghost} r="11" />
       <circle class="lane-dot" ref={dot} r="8" />
     </svg>
   );

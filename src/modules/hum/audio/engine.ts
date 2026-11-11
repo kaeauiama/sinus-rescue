@@ -132,6 +132,44 @@ export class AudioEngine {
     };
   }
 
+  // お手本の音(D-039)。path の高さを順にたどり、点と点の間は半音の刻みで等速に動かす。
+  // ms は鳴らし始めからの時刻で、鳴らし始めは startInMs 後(負なら、その分だけ途中から)。
+  playPath(path: { ms: number; hz: number }[], startInMs: number): () => void {
+    const ctx = this.ctx;
+    if (!ctx || !this.wave || path.length < 2) return () => {};
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.setPeriodicWave(this.wave);
+    // 画面の丸と耳に届く音がそろうよう、出力の遅れの分だけ早めに鳴らす。
+    const start = ctx.currentTime + startInMs / 1000 - (ctx.outputLatency || 0);
+    const at = (ms: number) => start + ms / 1000;
+    const end = at(path[path.length - 1].ms);
+    osc.frequency.setValueAtTime(path[0].hz, at(path[0].ms));
+    for (const point of path.slice(1)) osc.frequency.exponentialRampToValueAtTime(point.hz, at(point.ms));
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(TONE_LEVEL, start + FADE_SEC);
+    gain.gain.setValueAtTime(TONE_LEVEL, end - FADE_SEC);
+    gain.gain.linearRampToValueAtTime(0, end);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(Math.max(start, ctx.currentTime));
+    osc.stop(end + 0.01);
+    let stopped = false;
+    return () => {
+      if (stopped) return;
+      stopped = true;
+      const now = ctx.currentTime;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(gain.gain.value, now);
+      gain.gain.linearRampToValueAtTime(0, now + FADE_SEC);
+      try {
+        osc.stop(now + FADE_SEC + 0.01);
+      } catch {
+        // すでに止まっている
+      }
+    };
+  }
+
   private async startMic(): Promise<void> {
     if (this.micActive) return;
     if (this.simulate) {

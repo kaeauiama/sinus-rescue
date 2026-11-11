@@ -10,6 +10,7 @@ import { centsBetween, hzToMidi, median, summarizeTrack, type CapturePoint, type
 import {
   bandCents,
   bandHz,
+  demoPath,
   foldOctave,
   gradeOf,
   GRADES,
@@ -21,7 +22,7 @@ import {
 } from '../domain/lane';
 import { classifyCents, matchHint } from '../domain/match';
 import { SETTING_COMPARE_CONTACT, todayPlan } from '../domain/programs';
-import { FRAME_INTERVAL_MS, JUDGE_ONSET_MS, PITCH_TOLERANCE_CENTS, SETTLE_MS } from '../rules';
+import { FRAME_INTERVAL_MS, JUDGE_ONSET_MS, SETTLE_MS } from '../rules';
 import {
   KIND_SESSION,
   resumeCursor,
@@ -61,7 +62,7 @@ interface BreathProps extends BeatProps<Extract<Beat, { kind: 'breath' }>> {
 
 function Breath({ beat, caption, tone, progress, withTone, board, onClose, onDone }: BreathProps) {
   const { engine } = useHum();
-  // 滑らせる回も、吸う間に鳴らすのは始めの高さだけにする。動きは流れてくる帯で見せる(D-038)。
+  // 滑らせる回も、吸う間に鳴らすのは始めの高さだけにする。動きはセットの頭のお手本で聞かせ、帯で見せる(D-038, D-039)。
   useEffect(() => {
     if (!withTone || beat.toneMs <= 0) return undefined;
     return engine.playTone(tone.hz, scaled(beat.toneMs));
@@ -78,6 +79,44 @@ function Breath({ beat, caption, tone, progress, withTone, board, onClose, onDon
           <span ref={bar} />
         </div>
       )}
+    </Screen>
+  );
+}
+
+interface DemoProps extends BeatProps<Extract<Beat, { kind: 'demo' }>> {
+  tones: PlanTone[];
+  board: LaneBoardProps;
+}
+
+// 滑らせるセットの頭のお手本(D-039)。帯の形を、実際の速さのまま音と丸でなぞる。声は出さずに聞くだけなので、
+// 音がマイクに入っても判定には混ざらない(REQ-31)。
+function Demo({ beat, tones, caption, progress, board, onClose, onDone }: DemoProps) {
+  const { engine } = useHum();
+  const { startedAt } = board;
+  useEffect(() => {
+    const path = demoPath(
+      beat.tones.map((i) => tones[i]),
+      scaled(beat.shapeMs),
+    );
+    return engine.playPath(path, scaled(beat.leadMs) - (performance.now() - startedAt));
+  }, [engine, beat, tones, startedAt]);
+  useCountdown(scaled(beat.ms), onDone);
+  return (
+    <Screen
+      centered
+      progress={progress}
+      onClose={onClose}
+      closeLabel="終える"
+      title="お手本を聞く"
+      note={caption}
+      actions={
+        <Btn quiet onClick={onDone}>
+          次へ進む
+        </Btn>
+      }
+    >
+      <p class="cue">声は出さずに、丸と音を追う</p>
+      <LaneBoard {...board} />
     </Screen>
   );
 }
@@ -130,7 +169,7 @@ function LaneHum({ beat, tone, title, caption, cue, progress, board, onClose, on
     const summary = summarizeTrack(points.current, {
       settleMs: Math.min(scaled(SETTLE_MS), duration / 2),
       targetHz: tone.toHz ? null : tone.hz,
-      toleranceCents: PITCH_TOLERANCE_CENTS,
+      toleranceCents: bandCents(tone),
       frameMs: FRAME_INTERVAL_MS,
     });
     // 記録する割合も、画面の判定と同じ帯で数える。
@@ -209,7 +248,13 @@ export function Session({ mode, resumeFrom }: SessionProps) {
   useWakeLock();
   const plan = useMemo(() => todayPlan(events, settings, logicalDay(new Date())), []);
   const placement = plan.programId === 'compare' && settings[SETTING_COMPARE_CONTACT] ? 'contact' : 'air';
-  const [cursor, setCursor] = useState(resumeFrom != null ? resumeCursor(plan, resumeFrom) : 0);
+  // お手本は音で聞かせるものなので、マイクを使わない(音も鳴らさない)ときは飛ばす。
+  const skips = (index: number) => mode !== 'tuner' && plan.beats[index]?.kind === 'demo';
+  const [cursor, setCursor] = useState(() => {
+    let first = resumeFrom != null ? resumeCursor(plan, resumeFrom) : 0;
+    while (skips(first)) first++;
+    return first;
+  });
   const [stage, setStage] = useState<'run' | 'drainage' | 'nose' | 'done'>('run');
   const [completed, setCompleted] = useState(false);
   const [drainage, setDrainage] = useState<Drainage | null>(null);
@@ -223,7 +268,7 @@ export function Session({ mode, resumeFrom }: SessionProps) {
   const lane = useRef(createLaneState());
   const grades = useRef(new Map<number, Grade>());
   const beatStartedAt = useMemo(() => performance.now(), [cursor]);
-  const segments = useMemo(() => (mode === 'tuner' ? laneSegments(plan, cursor, (b) => scaled(b.ms)) : []), [cursor]);
+  const segments = useMemo(() => (mode === 'tuner' ? laneSegments(plan, cursor, scaled) : []), [cursor]);
   const home = () => go({ name: 'home' });
   const totalHums = () => results.current.reduce((sum, r) => sum + r.hums, 0);
 
@@ -240,7 +285,8 @@ export function Session({ mode, resumeFrom }: SessionProps) {
   };
 
   const advance = () => {
-    const next = cursor + 1;
+    let next = cursor + 1;
+    while (skips(next)) next++;
     if (next >= plan.beats.length) finish(true);
     else setCursor(next);
   };
@@ -405,7 +451,6 @@ export function Session({ mode, resumeFrom }: SessionProps) {
     );
   }
 
-  const caption = `${tone.label}　${beat.rep + 1} / ${beat.reps}`;
   const board: LaneBoardProps | null =
     mode === 'tuner'
       ? {
@@ -416,6 +461,12 @@ export function Session({ mode, resumeFrom }: SessionProps) {
           judge: previousGrade(plan, cursor, grades.current),
         }
       : null;
+  if (beat.kind === 'demo') {
+    if (!board) return null;
+    const caption = beat.tones.map((i) => plan.tones[i].label).join(' → ');
+    return <Demo key={cursor} beat={beat} tones={plan.tones} board={board} caption={caption} progress={progress} onClose={close} onDone={advance} />;
+  }
+  const caption = `${tone.label}　${beat.rep + 1} / ${beat.reps}`;
   if (beat.kind === 'breath') {
     return (
       <Breath key={cursor} beat={beat} tone={tone} withTone={mode === 'tuner'} board={board} caption={caption} progress={progress} onClose={close} onDone={advance} />

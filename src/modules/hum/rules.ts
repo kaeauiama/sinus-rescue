@@ -59,8 +59,11 @@ export const BLOCK_MAX_HUMS = 20;
 export const BLOCK_MAX_SETS = 5;
 export const BLOCK_REST_CHOICES = [0, 30, 60, 120, 180];
 
-// 流れる帯(D-038)。帯の太さは片側の幅で、高さが一定の回は PITCH_TOLERANCE_CENTS を使う。
-export const GLIDE_TOLERANCE_CENTS = 70;
+// 流れる帯(D-038)。帯の太さは片側の幅。登録の音合わせ(PITCH_TOLERANCE_CENTS)より少し広くしている(D-039)。
+export const STEADY_TOLERANCE_CENTS = 60;
+export const GLIDE_TOLERANCE_CENTS = 90;
+// 滑らせるセットの頭のお手本(D-039)。帯が今の線に届くまでの間
+export const DEMO_LEAD_SEC = 1.5;
 // 滑らせる回の始めと終わりに、高さを止めておく長さ(1回の長さに対する割合。5秒なら0.8秒ずつ)
 export const GLIDE_HOLD_RATIO = 0.16;
 export const LANE_HISTORY_SEC = 1.4;
