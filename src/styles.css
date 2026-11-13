@@ -1665,32 +1665,63 @@ input[type='time'] {
   }
 }
 
-.face {
+/* 副鼻腔の図(D-040)。画像の背景は透明なので、ライトでもダークでもそのまま置く。上に押せる範囲の SVG を重ねる */
+.sinus-map {
+  position: relative;
+  margin: 4px 0 20px;
+}
+
+.sinus-map img {
   display: block;
-  width: 168px;
-  margin: 12px auto 20px;
+  width: 100%;
+  height: auto;
 }
 
-.face-line {
-  fill: none;
-  stroke: var(--line-strong);
-  stroke-width: 2;
-  stroke-linecap: round;
+.sinus-map svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
-.zone {
+/* 押せる範囲は見せず、指で押しやすいよう縁を太くとる */
+.zone path {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 44;
+  stroke-linejoin: round;
+  pointer-events: all;
   cursor: pointer;
-  fill: var(--violet-soft);
 }
 
-.zone-active {
-  fill: var(--violet);
+.zone:active path {
+  fill: rgb(255 255 255 / 0.35);
 }
 
-.zone-deep {
-  stroke: var(--violet);
-  stroke-width: 1.5;
-  stroke-dasharray: 3 3;
+/* 部位の色は図に合わせる。図はダークでも同じ色なので、色は切り替えない */
+.site-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 10px;
+  border-radius: 50%;
+  vertical-align: 0.05em;
+}
+
+.site-dot.cheek {
+  background: #f29425;
+}
+
+.site-dot.between-eyes {
+  background: #5da956;
+}
+
+.site-dot.forehead {
+  background: #3ab3f8;
+}
+
+.site-dot.deep-nose {
+  background: #9267e3;
 }
 
 .note-stepper {

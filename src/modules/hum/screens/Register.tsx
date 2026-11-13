@@ -42,7 +42,10 @@ function PickSite({ onPick, onClose }: { onPick: (site: SiteId) => void; onClose
       <div class="choices">
         {SITES.map((site) => (
           <button key={site.id} type="button" class="row-button" onClick={() => onPick(site.id)}>
-            <span>{site.name}</span>
+            <span>
+              <i class={`site-dot ${site.id}`} aria-hidden="true" />
+              {site.name}
+            </span>
             <small>{site.sinus}</small>
           </button>
         ))}
